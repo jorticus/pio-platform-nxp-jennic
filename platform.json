@@ -1,0 +1,38 @@
+{
+  "name": "nxp-jennic",
+  "title": "NXP Jennic ZigBee Platform",
+  "description": "NXP's ZigBee Platform for JN516x family chips",
+  "url": "https://www.nxp.com/products/wireless/zigbee/zigbee/zigbee-home-automation:ZIGBEE-HOME-AUTOMATION",
+  "homepage": "http://platformio.org/platforms/nxp-jennic",
+  "license": "GPL-3.0",
+  "engines": {
+    "platformio": "<5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jorticus/pio-platform-nxp-jennic"
+  },
+  "version": "1.0.1620",
+  "packageRepositories": [
+  ],
+  "frameworks": {
+    "jennic": {
+      "package": "framework-jennic",
+      "script": "builder/frameworks/jennic.py"
+    }
+  },
+  "packages": {
+    "toolchain-nxp-beyondstudio": {
+      "type": "toolchain",
+      "version": "~1.0.36379"
+    },
+    "framework-jennic": {
+      "type": "framework",
+      "version": "~1.0.1620"
+    },
+    "tool-nxp-jn51prog": {
+      "type": "tool",
+      "version": "~1.0.0"
+    }
+  }
+}

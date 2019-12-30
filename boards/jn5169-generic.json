@@ -1,0 +1,22 @@
+{
+  "build": {
+    "core": "nxp-jennic",
+    "extra_flags": "",
+    "mcu": "JN5169"
+  },
+  "connectivity": [
+    "zigbee"
+  ],
+  "frameworks": [
+    "jennic"
+  ],
+  "name": "JN5169 Generic Module",
+  "upload": {
+    "maximum_ram_size": 32768,
+    "maximum_size": 524288,
+    "require_upload_port": true,
+    "speed": 115200
+  },
+  "url": "https://www.nxp.com/products/wireless/zigbee/zigbee-and-ieee802.15.4-wireless-microcontroller-with-512-kb-flash-32-kb-ram:JN5169",
+  "vendor": "NXP"
+}
