@@ -20,6 +20,7 @@ platform = env.PioPlatform()
 FRAMEWORK_DIR = platform.get_package_dir("framework-jennic")
 TOOLCHAIN_DIR = platform.get_package_dir("toolchain-nxp-beyondstudio")
 assert isdir(FRAMEWORK_DIR)
+assert isdir(TOOLCHAIN_DIR)
 
 JENNIC_CHIP = env.BoardConfig().get("build.mcu")
 if JENNIC_CHIP not in ['JN5161', 'JN5164', 'JN5168', 'JN5169']:
@@ -32,20 +33,31 @@ JENNIC_CHIP_FAMILY_ID = 5160
 
 # JENNIC_STACK specifies the full stack (MAC only, JenNet-IP, etc.) and
 #   determines which set of libraries and include paths are added to the build
+JENNIC_STACK = env.GetProjectOption("jennic_stack", "ZLLHA")
+assert (JENNIC_STACK in ['ZLLHA', 'ZBPro', 'JIP', 'MAC'])
+
 # JENNIC_MAC allows selection of the MAC layer:
 #   MAC         for full MAC
 #   MiniMac     for size-optimised variant
 #   MiniMacShim for size-optimised with shim to the old API
-#JENNIC_STACK = "MAC"
-#JENNIC_MAC = "MAC"
+JENNIC_MAC   = env.GetProjectOption("jennic_mac",   "MiniMacShim")
+assert (JENNIC_MAC in ['MAC', 'MiniMac', 'MiniMacShim'])
 
-# TODO: Pull from platformio.ini build env
-# For ZLL (Lights)
-JENNIC_STACK = "ZLLHA"
-JENNIC_MAC = "MiniMacShim"
-ZBPRO_DEVICE_TYPE = 'ZCR' # ZCR for Light, ZED for Controller
+ # ZCR for Light, ZED for Controller
+ZBPRO_DEVICE_TYPE = env.GetProjectOption("zbpro_device_type", None)
+assert (ZBPRO_DEVICE_TYPE in ['ZCR', 'ZED'])
+
+# Where to store the non-volatile PDM data
+PDM_BUILD_TYPE = env.GetProjectOption("pdm_build_type", 'EEPROM')
+assert (PDM_BUILD_TYPE in ['EEPROM','EXTERNAL_FLASH','NONE'])
+
+# If true, the debug lib is linked in
+DBG_ENABLE = bool(env.GetProjectOption("jennic_debug_enable", False))
+HARDWARE_DEBUG_ENABLED = False
+
 #OPTIONAL_STACK_FEATURES = $(shell $(ZPSCONFIG) -n $(TARGET) -f $(APP_COMMON_SRC_DIR)/$(APP_ZPSCFG) -y )
-OPTIONAL_STACK_FEATURES = 1
+#OPTIONAL_STACK_FEATURES = 1 # TODO
+
 
 SDK_STACK_DIR       = join(FRAMEWORK_DIR, "Stack")
 SDK_COMPONENTS_DIR  = join(FRAMEWORK_DIR, "Components")
@@ -53,38 +65,35 @@ SDK_PLATFORM_DIR    = join(FRAMEWORK_DIR, "Platform")
 SDK_CHIP_DIR        = join(FRAMEWORK_DIR, "Chip", JENNIC_CHIP)
 SDK_TOOL_DIR        = join(FRAMEWORK_DIR, "Tools")
 
-DBG_ENABLE = True
-HARDWARE_DEBUG_ENABLED = False
-
-PDM_BUILD_TYPE = 'EEPROM'  # EEPROM,EXTERNAL_FLASH,NONE
-
 STACK_SIZE = None
 MINIMUM_HEAP_SIZE = None
 
 # NOTE: The following settings are only available for the ZLLHA stack
 if JENNIC_STACK == "ZLLHA":
-    GP_SUPPORT = False # GreenPower Support
-    # TODO: Detect which sets to include
-    APP_CLUSTER_HA_LIGHTING_SRC = True
-    APP_CLUSTERS_ENERGY_AT_HOME_SRC = False
-    APP_CLUSTERS_HVAC_SRC = False
-    APP_CLUSTERS_IAS_SRC = False
-    APP_CLUSTER_ZLL_SRC = False
-    APP_CLUSTERS_GREENPOWER_SRC = False
+
+    ZLLHA_FEATURES = env.GetProjectOption("zllha_features", None)
+    if not ZLLHA_FEATURES:
+        raise Exception("No ZLL/HA features specified")
+    
+    ZLLHA_FEATURES = [f for f in [f.strip().upper() for f in ZLLHA_FEATURES.split(',')] if f]
+    for feature in ZLLHA_FEATURES:
+        if feature not in ['ZLL', 'HA_LIGHTING', 'HVAC', 'IAS', 'GREENPOWER', 'ENERGY_AT_HOME']:
+            raise Exception("%s is not a valid ZLL/HA feature" % feature)
+
+    APP_CLUSTER_HA_LIGHTING_SRC     = ('HA_LIGHTING' in ZLLHA_FEATURES)
+    APP_CLUSTERS_ENERGY_AT_HOME_SRC = ('ENERGY_AT_HOME' in ZLLHA_FEATURES)
+    APP_CLUSTERS_HVAC_SRC           = ('HVAC' in ZLLHA_FEATURES)
+    APP_CLUSTERS_IAS_SRC            = ('IAS' in ZLLHA_FEATURES)
+    APP_CLUSTER_ZLL_SRC             = ('ZLL' in ZLLHA_FEATURES)
+    APP_CLUSTERS_GREENPOWER_SRC     = ('GREENPOWER' in ZLLHA_FEATURES)
+    GP_SUPPORT = APP_CLUSTERS_GREENPOWER_SRC 
 
     if APP_CLUSTER_HA_LIGHTING_SRC and APP_CLUSTER_ZLL_SRC:
         # NOTE: There is a duplicate dimmable_light.h file (one in ZLL, one in HA profile)
-        raise Exception("HA & ZLL Lighting are incompatible")
-
-
-# APP_ZPSCFG = app.zpscfg
-
+        raise Exception("ZLL & HA_LIGHTING features are incompatible")
 
 env.Append(
     ASFLAGS=["-x", "assembler-with-cpp"],
-
-    # CFLAGS=[
-    # ],
 
     CCFLAGS=[
         "-Wall",
@@ -258,9 +267,20 @@ else:
     LINKER_FILE = 'AppBuildMac'
 
 if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
-    OSCONFIG_EXE    = join(SDK_TOOL_DIR, "OSConfig", "bin", "OSConfig.exe")
+    OSCONFIG_EXE    = join(SDK_TOOL_DIR, "OSConfig",   "bin", "OSConfig.exe")
     PDUMCONFIG_EXE  = join(SDK_TOOL_DIR, "PDUMConfig", "bin", "PDUMConfig.exe")
-    ZPSCONFIG_EXE   = join(SDK_TOOL_DIR, "ZPSConfig", "bin", "ZPSConfig.exe")
+    ZPSCONFIG_EXE   = join(SDK_TOOL_DIR, "ZPSConfig",  "bin", "ZPSConfig.exe")
+    assert (exists(OSCONFIG_EXE))
+    assert (exists(PDUMCONFIG_EXE))
+    assert (exists(ZPSCONFIG_EXE))
+
+    PROJ_TARGET = env.GetProjectOption("conf_target", None)
+    ZPSCFG_PATH = join('$PROJECT_SRC_DIR', env.GetProjectOption('conf_zps', None)) # app.zpscfg
+    OSCFG_PATH = join('$PROJECT_SRC_DIR', env.GetProjectOption('conf_os', None)) # App_ZLL_Light_JN516x.oscfgdiag
+
+    print("Conf Target: %s" % PROJ_TARGET)
+    print("Conf ZPS:    %s" % ZPSCFG_PATH)
+    print("Conf OS:     %s" % OSCFG_PATH)
 
     STACK_SIZE = 6000
     MINIMUM_HEAP_SIZE = 2000
@@ -293,12 +313,13 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
         APPLIBS.append('PDM_EEPROM')
 
     # TODO: Select libraries based on OPTIONAL_STACK_FEATURES
+    # For now let's just link in all libraries, even if not needed
     if ZBPRO_DEVICE_TYPE == 'ZCR':
-        APPLIBS += ["ZPSNWK", "ZPSZLL"]#, "ZPSGP"]
+        APPLIBS += ["ZPSNWK", "ZPSZLL", "ZPSGP"]
         ZPS_NWK_LIB = 'ZPSNWK'
         ZPS_APL_LIB = 'ZPSAPL'
     elif ZBPRO_DEVICE_TYPE == 'ZED':
-        APPLIBS += ["ZPSNWK_ZED", "ZPSZLL_ZED"]#, "ZPSGP_ZED"]
+        APPLIBS += ["ZPSNWK_ZED", "ZPSZLL_ZED", "ZPSGP_ZED"]
         ZPS_NWK_LIB = 'ZPSNWK_ZED'
         ZPS_APL_LIB = 'ZPSAPL_ZED'
 
@@ -313,21 +334,12 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
 
     env.Append(
         CPPPATH=[join(SDK_COMPONENTS_DIR, appname, "Include") for appname in APPLIBS],
-        LIBS=['%s_%s' % (lib, JENNIC_CHIP_FAMILY) for lib in APPLIBS]  # TODO: Use JNLIBS instead?
+        JNLIBS=APPLIBS
     )
 
     #
     # Custom build targets
     #
-
-    # This isn't officially supported, and PIO will complain that the build options aren't known, but it works...
-    PROJ_TARGET = env.GetProjectOption("conf_target", None)
-    ZPSCFG_PATH = join('$PROJECT_SRC_DIR', env.GetProjectOption('conf_zps', None)) # app.zpscfg
-    OSCFG_PATH = join('$PROJECT_SRC_DIR', env.GetProjectOption('conf_os', None)) # App_ZLL_Light_JN516x.oscfgdiag
-
-    print("Conf Target: %s" % PROJ_TARGET)
-    print("Conf ZPS:    %s" % ZPSCFG_PATH)
-    print("Conf OS:     %s" % OSCFG_PATH)
 
     def get_zpslib_path(name):
         return join(SDK_COMPONENTS_DIR, "Library", "lib%s_%s.a"%(name, JENNIC_CHIP_FAMILY))
@@ -406,11 +418,7 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
     #includes = env.MatchSourceFiles(env.subst('$PROJECT_INCLUDE_DIR'), ['+<**/os_msg_types.h>'])
     #print("Found os_msg_types.h: %s" % includes)
     env.Prepend(
-        CPPPATH=[
-            BUILDGEN_DIR, 
-            # Not ideal, but os_gen.c requires os_msg_types.h from the project source...
-            join('$PROJECT_INCLUDE_DIR', 'Common', 'Source'),
-        ],
+        CPPPATH=[BUILDGEN_DIR],
         LIBS=[genlib]
     )
 
@@ -496,7 +504,6 @@ env.Append(
         join(SDK_COMPONENTS_DIR, "Recal", "Include"),
         join(SDK_COMPONENTS_DIR, "OVLY", "Include"),
         join(SDK_COMPONENTS_DIR, "MicroSpecific", "Include"),
-
     ]
 )
 
@@ -577,6 +584,10 @@ if JENNIC_STACK == 'ZLLHA':
         libs.append(env.BuildLibrary(
             join("$BUILD_DIR", "ZLL_Lighting"),
             join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "Lighting", "Source")
+        ))
+        libs.append(env.BuildLibrary(
+            join("$BUILD_DIR", "ZLL_LightLink"),
+            join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "LightLink", "Source")
         ))
 
         # # Measurement And Sensing
