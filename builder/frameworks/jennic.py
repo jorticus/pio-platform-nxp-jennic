@@ -61,6 +61,20 @@ PDM_BUILD_TYPE = 'EEPROM'  # EEPROM,EXTERNAL_FLASH,NONE
 STACK_SIZE = None
 MINIMUM_HEAP_SIZE = None
 
+# NOTE: The following settings are only available for the ZLLHA stack
+if JENNIC_STACK == "ZLLHA":
+    GP_SUPPORT = False # GreenPower Support
+    # TODO: Detect which sets to include
+    APP_CLUSTER_HA_LIGHTING_SRC = True
+    APP_CLUSTERS_ENERGY_AT_HOME_SRC = False
+    APP_CLUSTERS_HVAC_SRC = False
+    APP_CLUSTERS_IAS_SRC = False
+    APP_CLUSTER_ZLL_SRC = False
+    APP_CLUSTERS_GREENPOWER_SRC = False
+
+    if APP_CLUSTER_HA_LIGHTING_SRC and APP_CLUSTER_ZLL_SRC:
+        # NOTE: There is a duplicate dimmable_light.h file (one in ZLL, one in HA profile)
+        raise Exception("HA & ZLL Lighting are incompatible")
 
 
 # APP_ZPSCFG = app.zpscfg
@@ -101,8 +115,8 @@ env.Append(
         "EMBEDDED",
         "RTOS", # Always tell any actual drivers they're running under an RTOS in this usage
 
-        # CHANNEL ?= 0
-        ("MK_CHANNEL", "0"),
+        # This can be used to override the default discovery channel. If not specified, it will be available on all channels
+        #("MK_CHANNEL", "0"), 
 
         # OTA Support
         #"BUILD_OTA",
@@ -175,16 +189,6 @@ env.Append(
         "BoardLib"
     ],
     LIBS=[
-        # # Standard libraries: Peripheral API, MAC, etc.
-        # "Aes_"+JENNIC_CHIP_FAMILY,
-        # "HardwareApi_"+JENNIC_CHIP_FAMILY,
-        # "MicroSpecific_"+JENNIC_CHIP_FAMILY,
-        # "Boot_"+JENNIC_CHIP_FAMILY,
-
-        # "Recal_"+JENNIC_CHIP_FAMILY,
-
-        # # Platform-specific board library
-        # "BoardLib_"+JENNIC_CHIP_FAMILY,
     ]
 )
 
@@ -195,6 +199,9 @@ if DBG_ENABLE:
         ],
         JNLIBS=["DBG"]
     )
+
+if GP_SUPPORT:
+    env.Append(CPPDEFINES=["CLD_GREENPOWER"])
 
 #
 # Stack Support
@@ -255,7 +262,7 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
     PDUMCONFIG_EXE  = join(SDK_TOOL_DIR, "PDUMConfig", "bin", "PDUMConfig.exe")
     ZPSCONFIG_EXE   = join(SDK_TOOL_DIR, "ZPSConfig", "bin", "ZPSConfig.exe")
 
-    STACK_SIZE = 5000
+    STACK_SIZE = 6000
     MINIMUM_HEAP_SIZE = 2000
 
     env.Append(
@@ -415,12 +422,6 @@ if JENNIC_STACK == 'ZLLHA':
     SDK_ZCL_CLUSTERS = join(SDK_ZCL_DIR, "Clusters")
     SDK_ZCL_PROFILES = join(SDK_ZCL_DIR, "Profiles")
 
-    APP_CLUSTER_HA_LIGHTING_SRC = False
-    APP_CLUSTERS_ENERGY_AT_HOME_SRC = False
-    APP_CLUSTERS_HVAC_SRC = False
-    APP_CLUSTERS_IAS_SRC = False
-    APP_CLUSTER_ZLL_SRC = True
-
     env.Append(
         CPPPATH=[
             join(SDK_ZCL_DIR, "Source"),
@@ -439,7 +440,8 @@ if JENNIC_STACK == 'ZLLHA':
 
             join(SDK_ZCL_PROFILES, "HA", "Common", "Include"),
             join(SDK_ZCL_PROFILES, "HA", "Generic", "Include"),
-            join(SDK_ZCL_PROFILES, "HA", "GP", "Include"),
+
+            join(SDK_ZCL_PROFILES, "GP", "Include"),
         ],
         CPPDEFINES=[
             "ZPS_APL_OPT_SINGLE_INSTANCE",
@@ -547,21 +549,106 @@ print("LIBS:    %s" % env['JNLIBS'])
 libs = []
 
 if JENNIC_STACK == 'ZLLHA':
-    # ZLL Clusters
-    libs.append(env.BuildLibrary(
-        join("$BUILD_DIR", "ZLLClusters"),
-        join(SDK_COMPONENTS_DIR, "ZCL", "Clusters")
-    ))
-    # ZLL Profile
-    libs.append(env.BuildLibrary(
-        join("$BUILD_DIR", "ZLLProfile"),
-        join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "ZLL", "Source")
-    ))
+    # See: Stack\ZLLHA\Build\config_ZLLHA.mk
+
     # ZCL Source
     libs.append(env.BuildLibrary(
-        join("$BUILD_DIR", "ZCLSource"),
+        join("$BUILD_DIR", "ZCL"),
         join(SDK_COMPONENTS_DIR, "ZCL", "Source")
     ))
+    libs.append(env.BuildLibrary(
+        join("$BUILD_DIR", "ZCL_General"),
+        join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "General", "Source")
+    ))
+
+    # OTA
+    # if APP_CLUSTERS_OTA_SRC:
+    #     libs.append(env.BuildLibrary(
+    #         join("$BUILD_DIR", "ZCL_OTA"),
+    #         join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "OTA", "Source")
+    #     ))
+
+    # Zigbee LightLink (ZLL) Stack
+    if APP_CLUSTER_ZLL_SRC:
+        libs.append(env.BuildLibrary(
+            join("$BUILD_DIR", "ZLL"),
+            join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "ZLL", "Source")
+        ))
+        libs.append(env.BuildLibrary(
+            join("$BUILD_DIR", "ZLL_Lighting"),
+            join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "Lighting", "Source")
+        ))
+
+        # # Measurement And Sensing
+        # if APP_CLUSTERS_MEASUREMENT_AND_SENSING:
+        #     libs.append(env.BuildLibrary(
+        #         join("$BUILD_DIR", "ZCL_MeasurementAndSensing_Cluster"),
+        #         join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "MeasurementAndSensing", "Source")
+        #     ))
+
+    # HomeAutomation (HA) Stack
+    else:
+                
+        # HA Common
+        libs.append(env.BuildLibrary(
+            join("$BUILD_DIR", "HA_Common"),
+            join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "HA", "Common", "Source")
+        ))
+
+        # HA Lighting
+        if APP_CLUSTER_HA_LIGHTING_SRC:
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_Lighting_Profile"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "HA", "Lighting", "Source")
+            ))
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_Lighting_Cluster"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "Lighting", "Source")
+            ))
+
+        # Energy At Home
+        if APP_CLUSTERS_ENERGY_AT_HOME_SRC:
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_EnergyAtHome_Cluster"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "EnergyAtHome", "Source")
+            ))
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_EnergyAtHome_Profile"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "HA", "EnergyAtHome", "Source")
+            ))
+
+        # GreenPower Source
+        if APP_CLUSTERS_GREENPOWER_SRC:
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_GreenPower_Cluster"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "GreenPower", "Source")
+            ))
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_GreenPower_Profile"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "GP", "Source")
+            ))
+
+        # HVAC
+        if APP_CLUSTERS_HVAC_SRC:
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_HVAC_Cluster"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "HVAC", "Source")
+            ))
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_HVAC_Profile"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "HA", "HVAC", "Source")
+            ))
+
+        # IAS
+        if APP_CLUSTERS_IAS_SRC:
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_IAS_Cluster"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "IAS", "Source")
+            ))
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "HA_IAS_Profile"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "HA", "IAS", "Source")
+            ))
 
 # SDK Source
 libs.append(env.BuildLibrary(
