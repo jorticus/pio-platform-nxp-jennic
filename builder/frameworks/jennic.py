@@ -198,6 +198,7 @@ env.Append(
         "BoardLib"
     ],
     LIBS=[
+        'm' # Add math library
     ]
 )
 
