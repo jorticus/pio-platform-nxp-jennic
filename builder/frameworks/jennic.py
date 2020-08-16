@@ -304,6 +304,8 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
         JNLIBS=["ZPSAPL"]
     )
 
+    ZPS_APL_LIB = 'ZPSAPL'
+
     APPLIBS = ["OS", "PWRM", "ZPSTSV", "AES_SW", "PDUM", "ZPSAPL"]
     if JENNIC_CHIP_FAMILY == "JN516x":
         APPLIBS.append("Random")
@@ -318,11 +320,9 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
     if ZBPRO_DEVICE_TYPE == 'ZCR':
         APPLIBS += ["ZPSNWK", "ZPSZLL", "ZPSGP"]
         ZPS_NWK_LIB = 'ZPSNWK'
-        ZPS_APL_LIB = 'ZPSAPL'
     elif ZBPRO_DEVICE_TYPE == 'ZED':
         APPLIBS += ["ZPSNWK_ZED", "ZPSZLL_ZED", "ZPSGP_ZED"]
         ZPS_NWK_LIB = 'ZPSNWK_ZED'
-        ZPS_APL_LIB = 'ZPSAPL_ZED'
 
     if JENNIC_MAC == 'MAC':
         APPLIBS.append("ZPSMAC")
