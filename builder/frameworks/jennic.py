@@ -3,8 +3,9 @@ Jennic ZigBee SDK Support
 """
 
 from os.path import join, isdir, exists
+import os, shutil, stat
 
-from SCons.Script import Import, SConscript, Builder, AlwaysBuild
+from SCons.Script import Import, SConscript, Builder, AlwaysBuild, Action
 from SCons.Script import DefaultEnvironment
 
 try:
@@ -347,40 +348,68 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
     
     BUILDGEN_DIR = '$BUILD_DIR/gen'
 
+    def ClearReadOnlyAttribute(path):
+        #print("Clear RO on '%s'" % path)
+        try:
+            os.chmod(str(path), stat.S_IWRITE)
+        except:
+            pass
+
+    def GeneratePdumAction(target, source, env):
+        for f in target:
+            ClearReadOnlyAttribute(f)
+
+        action = Action(' '.join([
+            '"'+PDUMCONFIG_EXE+'"',
+            '-z',PROJ_TARGET,
+            '-f','$SOURCES',
+            '-o',BUILDGEN_DIR
+        ]))
+        action(target, source, env)
+
+    def GenerateOsConfigAction(target, source, env):
+        for f in target:
+            ClearReadOnlyAttribute(f)
+
+        action = Action(' '.join([
+            '"'+OSCONFIG_EXE+'"',
+            '-f','$SOURCES',
+            '-o',BUILDGEN_DIR,
+            '-v',JENNIC_CHIP
+        ]))
+        action(target, source, env)
+
+    def GenerateZigbeeStackAction(target, source, env):
+        for f in target:
+            ClearReadOnlyAttribute(f)
+
+        action = Action(' '.join([
+            '"'+ZPSCONFIG_EXE+'"',
+            '-n',PROJ_TARGET,
+            '-t',JENNIC_CHIP,
+            '-l',get_zpslib_path(ZPS_NWK_LIB),
+            '-a',get_zpslib_path(ZPS_APL_LIB),
+            '-c',TOOLCHAIN_DIR,
+            '-f','$SOURCES',
+            '-o',BUILDGEN_DIR
+        ]))
+        action(target, source, env)
+
     env.Append(BUILDERS=dict(
         GeneratePdum=Builder(
-            action=env.VerboseAction(' '.join([
-               '"'+PDUMCONFIG_EXE+'"',
-               '-z',PROJ_TARGET,
-               '-f','$SOURCES',
-               '-o',BUILDGEN_DIR
-            ]), "Generating PDUM Config...")
+            action=env.VerboseAction(GeneratePdumAction, "Generating PDUM Config...")
         ),
         GenerateOsConfig=Builder(
-            action=env.VerboseAction(' '.join([
-               '"'+OSCONFIG_EXE+'"',
-               '-f','$SOURCES',
-               '-o',BUILDGEN_DIR,
-               '-v',JENNIC_CHIP
-            ]), "Generating OS Config...")
+            action=env.VerboseAction(GenerateOsConfigAction, "Generating OS Config...")
         ),
         GenerateZigbeeStack=Builder(
-            action=env.VerboseAction(' '.join([
-                '"'+ZPSCONFIG_EXE+'"',
-                '-n',PROJ_TARGET,
-                '-t',JENNIC_CHIP,
-                '-l',get_zpslib_path(ZPS_NWK_LIB), # TODO: Would be great if you could look this up from the env...
-                '-a',get_zpslib_path(ZPS_APL_LIB),
-                '-c',TOOLCHAIN_DIR,
-                '-f','$SOURCES',
-                '-o',BUILDGEN_DIR
-            ]), "Configuring Zigbee Protocol Stack")
+            action=env.VerboseAction(GenerateZigbeeStackAction, "Configuring Zigbee Protocol Stack...")
         )
     ))
 
     # Generate source/headers from project config
     # These will only be re-generated if the source/dest files change.
-    target_pdum = env.GeneratePdum([join(BUILDGEN_DIR, f) for f in [
+    env.GeneratePdum([join(BUILDGEN_DIR, f) for f in [
         'pdum_gen.h',
         'pdum_gen.c',
         'pdum_apdu.S',
@@ -423,6 +452,7 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
         LIBS=[genlib]
     )
 
+    # TODO: We're supposed to feed the above targets in as a pre-action, but I couldn't get this to work...
     #env.AddPreAction('buildprog', target_pdum)
 
 if JENNIC_STACK == 'ZLLHA':
