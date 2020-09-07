@@ -12,6 +12,10 @@ Non-ZLL ZigBee samples may or may not build, though I have replicated most of th
 
 ## Installation ##
 
+IMPORTANT: This is not compatible with PlatformIO 5.0.0+. Please use 4.3.1 until this is sorted out.
+
+Failure to follow this advice will result in strange linker errors.
+
 ### Download Packages from NXP ###
 
 https://www.nxp.com/products/wireless/zigbee/zigbee/zigbee-home-automation:ZIGBEE-HOME-AUTOMATION
