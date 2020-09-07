@@ -356,9 +356,6 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
             pass
 
     def GeneratePdumAction(target, source, env):
-        for f in target:
-            ClearReadOnlyAttribute(f)
-
         action = Action(' '.join([
             '"'+PDUMCONFIG_EXE+'"',
             '-z',PROJ_TARGET,
@@ -367,10 +364,10 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
         ]))
         action(target, source, env)
 
-    def GenerateOsConfigAction(target, source, env):
         for f in target:
             ClearReadOnlyAttribute(f)
 
+    def GenerateOsConfigAction(target, source, env):
         action = Action(' '.join([
             '"'+OSCONFIG_EXE+'"',
             '-f','$SOURCES',
@@ -379,10 +376,10 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
         ]))
         action(target, source, env)
 
-    def GenerateZigbeeStackAction(target, source, env):
         for f in target:
             ClearReadOnlyAttribute(f)
 
+    def GenerateZigbeeStackAction(target, source, env):
         action = Action(' '.join([
             '"'+ZPSCONFIG_EXE+'"',
             '-n',PROJ_TARGET,
@@ -394,6 +391,9 @@ if JENNIC_STACK in ['ZLLHA', 'ZBPro']:
             '-o',BUILDGEN_DIR
         ]))
         action(target, source, env)
+
+        for f in target:
+            ClearReadOnlyAttribute(f)
 
     env.Append(BUILDERS=dict(
         GeneratePdum=Builder(
