@@ -78,7 +78,7 @@ if JENNIC_STACK == "ZLLHA":
     
     ZLLHA_FEATURES = [f for f in [f.strip().upper() for f in ZLLHA_FEATURES.split(',')] if f]
     for feature in ZLLHA_FEATURES:
-        if feature not in ['ZLL', 'HA_LIGHTING', 'HVAC', 'IAS', 'GREENPOWER', 'ENERGY_AT_HOME']:
+        if feature not in ['ZLL', 'HA_LIGHTING', 'HVAC', 'IAS', 'GREENPOWER', 'ENERGY_AT_HOME', 'MEASUREMENT_AND_SENSING']:
             raise Exception("%s is not a valid ZLL/HA feature" % feature)
 
     APP_CLUSTER_HA_LIGHTING_SRC     = ('HA_LIGHTING' in ZLLHA_FEATURES)
@@ -87,6 +87,7 @@ if JENNIC_STACK == "ZLLHA":
     APP_CLUSTERS_IAS_SRC            = ('IAS' in ZLLHA_FEATURES)
     APP_CLUSTER_ZLL_SRC             = ('ZLL' in ZLLHA_FEATURES)
     APP_CLUSTERS_GREENPOWER_SRC     = ('GREENPOWER' in ZLLHA_FEATURES)
+    APP_CLUSTERS_MEASUREMENT_AND_SENSING = ('MEASUREMENT_AND_SENSING' in ZLLHA_FEATURES)
     GP_SUPPORT = APP_CLUSTERS_GREENPOWER_SRC 
 
     if APP_CLUSTER_HA_LIGHTING_SRC and APP_CLUSTER_ZLL_SRC:
@@ -690,6 +691,12 @@ if JENNIC_STACK == 'ZLLHA':
             libs.append(env.BuildLibrary(
                 join("$BUILD_DIR", "HA_IAS_Profile"),
                 join(SDK_COMPONENTS_DIR, "ZCL", "Profiles", "HA", "IAS", "Source")
+            ))
+
+        if APP_CLUSTERS_MEASUREMENT_AND_SENSING:
+            libs.append(env.BuildLibrary(
+                join("$BUILD_DIR", "ZCL_MeasurementAndSensing_Cluster"),
+                join(SDK_COMPONENTS_DIR, "ZCL", "Clusters", "MeasurementAndSensing", "Source")
             ))
 
 # SDK Source
