@@ -201,7 +201,45 @@ D13  | DimmableLight PWM Output
 
 <img align="right" src="ha-2.png"/>
 
+<div style="clear:both"/>
 
+## C++ Support ##
+
+Yes! The BA GCC compiler supports **C++11**! But to get this to work you'll need to
+make a few modifications:
+
+1. Copy `framework-jennic-2162/Chip/JN5168/AppBuildEnd.ld` to your workspace root
+2. Modify the `.text` section to look like this:
+   ```c
+        .text :
+        {
+            *(.text*)
+
+            . = ALIGN(0x4);
+            KEEP (*(.ctors))
+            . = ALIGN(0x4);
+            KEEP (*(.dtors))
+            . = ALIGN(0x4);
+
+            __init_array_start = .;
+            KEEP (*(.init_array*))
+            __init_array_end = .;
+
+            KEEP (*(.init))
+            KEEP (*(.fini))
+        } > flash
+   ```
+3. Add the following to your `vAppMain()`:
+   ```c
+    void _init();
+
+    PUBLIC void vAppMain(void)
+    {
+        //... init stack, clocks, and enable UART for logging ...
+
+        // Call C++ Constructors
+        _init();
+   ```
 
 **DISCLAIMER**
 
