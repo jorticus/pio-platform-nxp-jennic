@@ -115,7 +115,7 @@ env.Append(
         "-Wl,-u_AppWarmStart",
 
         # Chip/JNxxxx/Build/config_JNxxxx.mk
-        "-nostartfiles",
+        #"-nostartfiles",
         #"-nostdlib",
     ],
 
